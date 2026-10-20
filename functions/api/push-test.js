@@ -1,6 +1,6 @@
 // Server-side test of an actual Web Push request, without any task data.
 // Requires VAPID_PRIVATE_KEY in Cloudflare Pages > Settings > Variables and secrets.
-const PUBLIC='BLB3l2u5CK_BwZzP9sL1zCJF4DO1Cvhksg1G8vERF7nARzthQcNgC5dmeGA3mucjp7DQHC_tcOrX6AvM4EbtS_8';
+const PUBLIC='BCyalzlzjJ8HyLsw_2ZdEPxd_-BMgtR_mi2oKTZxZRPl8SPYpCERNwnvs6v5rEKA8rjHmGfs0YW5fZo-1rS4AyI';
 const reply=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}});
 function decode(s){const a=atob(s.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-s.length%4)%4));return Uint8Array.from(a,c=>c.charCodeAt(0))}
 function encode(data){let s='';for(const b of data)s+=String.fromCharCode(b);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
