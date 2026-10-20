@@ -1,0 +1,1 @@
+Osobní asistent v2.4 – opravy rozpoznání diktovaného času, blokování předčasných denních připomínek podle data a resetu stavu po editaci. Upozornění fungují pouze při otevřené aplikaci. Před nasazením vytvořte JSON zálohu.
