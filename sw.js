@@ -4,12 +4,17 @@ self.addEventListener('notificationclick',event=>{
  event.notification.close();
  const id=event.notification.data?.taskId;
  const url=new URL('./',self.registration.scope);
- if(id)url.hash='ukol='+encodeURIComponent(id);
- else if(event.notification.data?.source==='server')url.hash='push=1';
+ url.hash=id?'ukol='+encodeURIComponent(String(id)):'push=1';
  event.waitUntil((async()=>{
-  const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});
-  if(clients.length){const client=clients[0];await client.navigate(url.href);await client.focus();client.postMessage(id?{type:'OPEN_TASK',taskId:id}:{type:'OPEN_SERVER_PUSH'});}
-  else await self.clients.openWindow(url.href);
+  const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+  // Navigate the existing PWA window to a real deep link; this survives a cold start.
+  for(const client of windows){
+   try{
+    const target=await client.navigate(url.href);
+    if(target){await target.focus();target.postMessage(id?{type:'OPEN_TASK',taskId:String(id)}:{type:'OPEN_SERVER_PUSH'});return}
+   }catch(e){/* Open a new window below if navigation is unavailable. */}
+  }
+  await self.clients.openWindow(url.href);
  })());
 });
 

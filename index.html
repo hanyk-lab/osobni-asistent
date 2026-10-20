@@ -171,26 +171,42 @@ function closeTaskDialog(){$('taskDialog').hidden=true;dialogItemId=null}
 $('dialogDone').onclick=()=>{const item=items.find(x=>String(x.id)===dialogItemId);if(item)completeItem(item);closeTaskDialog()};
 $('dialogLater').onclick=()=>{const item=items.find(x=>String(x.id)===dialogItemId);if(item){const minutes=Number($('dialogSnooze').value);item.snoozeUntil=Date.now()+minutes*60000;persist();render();checkReminders()}closeTaskDialog()};
 $('dialogClose').onclick=closeTaskDialog;
+let pushOpenInProgress=false;
 async function openServerPushTask(){
+ if(pushOpenInProgress)return false;
+ pushOpenInProgress=true;
  try{
   const token=localStorage.getItem('oa-device-secret-v28');
-  if(!token)return;
+  if(!token)return false;
   const response=await fetch('./api/push-open',{method:'POST',headers:{'X-Device-Token':token},cache:'no-store'});
-  if(!response.ok)return;
+  if(!response.ok)throw Error('HTTP '+response.status);
   const result=await response.json();
-  if(result.taskId)openTaskDialog(String(result.taskId));
- }catch(e){console.warn('Nelze otevřít serverovou připomínku',e)}
+  // A delivered task is stored locally; do not silently clear the navigation if lookup fails.
+  if(result.taskId&&openTaskDialog(String(result.taskId)))return true;
+  return false;
+ }catch(e){console.warn('Nelze otevřít serverovou připomínku',e);return false}
+ finally{pushOpenInProgress=false}
 }
-function handleTaskNavigation(){
+async function handleTaskNavigation(){
  const m=location.hash.match(/^#ukol=(.+)$/);
- if(m){openTaskDialog(decodeURIComponent(m[1]));history.replaceState(null,'',location.pathname+location.search)}
- else if(location.hash==='#push=1'){
-  history.replaceState(null,'',location.pathname+location.search);
-  openServerPushTask();
+ if(m){
+  let id;try{id=decodeURIComponent(m[1])}catch{return}
+  if(openTaskDialog(id))history.replaceState(null,'',location.pathname+location.search);
+ }else if(location.hash==='#push=1'){
+  if(await openServerPushTask())history.replaceState(null,'',location.pathname+location.search);
  }
 }
 window.addEventListener('hashchange',handleTaskNavigation);
-navigator.serviceWorker?.addEventListener('message',e=>{if(e.data?.type==='OPEN_TASK')openTaskDialog(e.data.taskId);else if(e.data?.type==='OPEN_SERVER_PUSH')openServerPushTask()});
+navigator.serviceWorker?.addEventListener('message',async e=>{
+ if(e.data?.type==='OPEN_TASK')openTaskDialog(e.data.taskId);
+ else if(e.data?.type==='OPEN_SERVER_PUSH'){
+  if(await openServerPushTask()&&location.hash==='#push=1')history.replaceState(null,'',location.pathname+location.search);
+ }
+});
+// Handle deep links on cold start, not only on a hashchange in an already open app.
+handleTaskNavigation();
+window.addEventListener('pageshow',()=>{if(location.hash)handleTaskNavigation()});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&location.hash)handleTaskNavigation()});
 function notificationStatus(){const el=$('notificationStatus');el.textContent=!('Notification' in window)?'Tento prohlížeč oznámení nepodporuje.':Notification.permission==='granted'?'✓ Oznámení jsou povolena.':Notification.permission==='denied'?'Oznámení jsou zakázána v nastavení iPhonu.':'Oznámení zatím nejsou povolena.'}
 $('enableNotifications').onclick=async()=>{if(!('Notification' in window))return notificationStatus();try{await Notification.requestPermission()}catch(e){}notificationStatus()};
 $('testNotifications').onclick=()=>{if(!('Notification' in window)||Notification.permission!=='granted'){notificationStatus();return}notifyTask({id:'test',text:'Testovací oznámení funguje. Toto není automatická připomínka.'});$('notificationStatus').textContent='✓ Testovací oznámení bylo odesláno.'};
