@@ -171,9 +171,26 @@ function closeTaskDialog(){$('taskDialog').hidden=true;dialogItemId=null}
 $('dialogDone').onclick=()=>{const item=items.find(x=>String(x.id)===dialogItemId);if(item)completeItem(item);closeTaskDialog()};
 $('dialogLater').onclick=()=>{const item=items.find(x=>String(x.id)===dialogItemId);if(item){const minutes=Number($('dialogSnooze').value);item.snoozeUntil=Date.now()+minutes*60000;persist();render();checkReminders()}closeTaskDialog()};
 $('dialogClose').onclick=closeTaskDialog;
-function handleTaskNavigation(){const m=location.hash.match(/^#ukol=(.+)$/);if(m){openTaskDialog(decodeURIComponent(m[1]));history.replaceState(null,'',location.pathname+location.search)}}
+async function openServerPushTask(){
+ try{
+  const token=localStorage.getItem('oa-device-secret-v28');
+  if(!token)return;
+  const response=await fetch('./api/push-open',{method:'POST',headers:{'X-Device-Token':token},cache:'no-store'});
+  if(!response.ok)return;
+  const result=await response.json();
+  if(result.taskId)openTaskDialog(String(result.taskId));
+ }catch(e){console.warn('Nelze otevřít serverovou připomínku',e)}
+}
+function handleTaskNavigation(){
+ const m=location.hash.match(/^#ukol=(.+)$/);
+ if(m){openTaskDialog(decodeURIComponent(m[1]));history.replaceState(null,'',location.pathname+location.search)}
+ else if(location.hash==='#push=1'){
+  history.replaceState(null,'',location.pathname+location.search);
+  openServerPushTask();
+ }
+}
 window.addEventListener('hashchange',handleTaskNavigation);
-navigator.serviceWorker?.addEventListener('message',e=>{if(e.data?.type==='OPEN_TASK')openTaskDialog(e.data.taskId)});
+navigator.serviceWorker?.addEventListener('message',e=>{if(e.data?.type==='OPEN_TASK')openTaskDialog(e.data.taskId);else if(e.data?.type==='OPEN_SERVER_PUSH')openServerPushTask()});
 function notificationStatus(){const el=$('notificationStatus');el.textContent=!('Notification' in window)?'Tento prohlížeč oznámení nepodporuje.':Notification.permission==='granted'?'✓ Oznámení jsou povolena.':Notification.permission==='denied'?'Oznámení jsou zakázána v nastavení iPhonu.':'Oznámení zatím nejsou povolena.'}
 $('enableNotifications').onclick=async()=>{if(!('Notification' in window))return notificationStatus();try{await Notification.requestPermission()}catch(e){}notificationStatus()};
 $('testNotifications').onclick=()=>{if(!('Notification' in window)||Notification.permission!=='granted'){notificationStatus();return}notifyTask({id:'test',text:'Testovací oznámení funguje. Toto není automatická připomínka.'});$('notificationStatus').textContent='✓ Testovací oznámení bylo odesláno.'};

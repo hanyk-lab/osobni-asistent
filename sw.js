@@ -5,9 +5,10 @@ self.addEventListener('notificationclick',event=>{
  const id=event.notification.data?.taskId;
  const url=new URL('./',self.registration.scope);
  if(id)url.hash='ukol='+encodeURIComponent(id);
+ else if(event.notification.data?.source==='server')url.hash='push=1';
  event.waitUntil((async()=>{
   const clients=await self.clients.matchAll({type:'window',includeUncontrolled:true});
-  if(clients.length){const client=clients[0];await client.navigate(url.href);await client.focus();client.postMessage({type:'OPEN_TASK',taskId:id});}
+  if(clients.length){const client=clients[0];await client.navigate(url.href);await client.focus();client.postMessage(id?{type:'OPEN_TASK',taskId:id}:{type:'OPEN_SERVER_PUSH'});}
   else await self.clients.openWindow(url.href);
  })());
 });

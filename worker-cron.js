@@ -37,6 +37,7 @@ async function run(env){
  const time=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Prague',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(now));
  const hour=Number(time.slice(0,2));
  if(hour<8||hour>=20)return; // Only 08:00–19:59 Prague time.
+ await env.DB.prepare('CREATE TABLE IF NOT EXISTS push_deliveries (device_id TEXT PRIMARY KEY, task_id TEXT NOT NULL, sent_at TEXT NOT NULL)').run();
  const rows=await env.DB.prepare(`SELECT r.id,r.device_id,r.next_reminder_at,r.interval_minutes,s.endpoint
   FROM reminders r JOIN push_subscriptions s ON s.device_id=r.device_id
   WHERE r.active=1 AND r.next_reminder_at<=? ORDER BY r.next_reminder_at LIMIT 50`).bind(new Date(now).toISOString()).all();
@@ -44,6 +45,7 @@ async function run(env){
   try{
    const response=await send(row.endpoint,env.VAPID_PRIVATE_KEY,now);
    if(response.ok){
+    await env.DB.prepare('INSERT INTO push_deliveries (device_id,task_id,sent_at) VALUES (?,?,?) ON CONFLICT(device_id) DO UPDATE SET task_id=excluded.task_id,sent_at=excluded.sent_at').bind(row.device_id,row.id.slice(row.device_id.length+1),new Date(now).toISOString()).run();
     await env.DB.prepare('UPDATE reminders SET next_reminder_at=? WHERE id=? AND next_reminder_at=? AND active=1')
       .bind(nextTime(row,now),row.id,row.next_reminder_at).run();
    }else if(response.status===404||response.status===410){
