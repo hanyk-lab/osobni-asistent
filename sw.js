@@ -11,3 +11,12 @@ self.addEventListener('notificationclick',event=>{
   else await self.clients.openWindow(url.href);
  })());
 });
+
+// v3.1: display an incoming push even when the app is not open. No task text leaves the phone.
+self.addEventListener('push',event=>{
+ event.waitUntil(self.registration.showNotification('Osobní asistent', {
+  body:'Máš připomínku. Otevři Osobního asistenta.',
+  icon:'./icon-192.png',badge:'./icon-192.png',tag:'oa-server-push',
+  data:{source:'server'}
+ }));
+});
